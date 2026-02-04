@@ -57,6 +57,11 @@ def salvar_buffer_csv(lista_dados, nome_arq):
 
     df_temp = pd.DataFrame(lista_dados)
     
+    # Garante que o diretório exista antes de salvar
+    diretorio = os.path.dirname(nome_arq)
+    if diretorio and not os.path.exists(diretorio):
+        os.makedirs(diretorio)
+    
     if not os.path.exists(nome_arq):
         df_temp.to_csv(nome_arq, index=False, sep=';', decimal=',', encoding='utf-8-sig')
     else:
