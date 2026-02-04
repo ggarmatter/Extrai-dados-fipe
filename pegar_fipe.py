@@ -175,3 +175,4 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ANO_MODELO_M
         print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
     extrair_dados_fipe(mes_ref, ano_ref, ANO_MODELO_MIN, nome_arq)
+    return('Sucesso', 200)
