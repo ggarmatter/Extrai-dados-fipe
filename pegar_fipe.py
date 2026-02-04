@@ -9,7 +9,6 @@ from urllib3.util.retry import Retry
 # --- CONFIGURAÇÕES ---
 ANO_MODELO_MIN = 2018
 MES_REFERENCIA, ANO_REFERENCIA = 1, 2026
-NOME_ARQUIVO_SAIDA = f"./download/fipe_{MES_REFERENCIA}_{ANO_REFERENCIA}.csv"
 
 # --- INICIALIZAÇÃO DO SCRAPER ---
 def iniciar_scraper():
@@ -158,7 +157,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
                         continue
                 
                 # --- FINALIZOU O MODELO ---
-                # Salva no CSV apenas após processar todos os anos deste modelo específico
+                # Salva no CSV após processar todos os anos deste modelo específico
                 if dados_modelo_buffer:
                     salvar_buffer_csv(dados_modelo_buffer, nome_arq)
                     print(f" ✅ Salvo.")
@@ -171,9 +170,10 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
         print(f"\n❌ Erro Fatal: {e}")
 
 if __name__ == "__main__":
+    nome_arq = f"./download/fipe_{MES_REFERENCIA}_{ANO_REFERENCIA}.csv"
     print(f"🚀 Iniciando Scraper Fipe")
     print(f"📅 Referência: {MES_REFERENCIA}/{ANO_REFERENCIA}")
-    if os.path.exists(NOME_ARQUIVO_SAIDA):
-        print(f"📝 Arquivo existente: {NOME_ARQUIVO_SAIDA} (Modo Append)")
+    if os.path.exists(nome_arq):
+        print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
-    extrair_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN, NOME_ARQUIVO_SAIDA)
+    extrair_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN, nome_arq)
