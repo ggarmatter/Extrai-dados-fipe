@@ -3,12 +3,10 @@ import pandas as pd
 import time
 import random
 import os
+from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# --- CONFIGURAÇÕES ---
-ANO_MODELO_MIN = 2018
-MES_REFERENCIA, ANO_REFERENCIA = 1, 2026
 
 # --- INICIALIZAÇÃO DO SCRAPER ---
 def iniciar_scraper():
@@ -169,11 +167,11 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
     except Exception as e:
         print(f"\n❌ Erro Fatal: {e}")
 
-if __name__ == "__main__":
-    nome_arq = f"./download/fipe_{MES_REFERENCIA}_{ANO_REFERENCIA}.csv"
+def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ANO_MODELO_MIN=2018):
+    nome_arq = f"./download/fipe_{mes_ref}_{ano_ref}.csv"
     print(f"🚀 Iniciando Scraper Fipe")
-    print(f"📅 Referência: {MES_REFERENCIA}/{ANO_REFERENCIA}")
+    print(f"📅 Referência: {mes_ref}/{ano_ref}")
     if os.path.exists(nome_arq):
         print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
-    extrair_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN, nome_arq)
+    extrair_dados_fipe(mes_ref, ano_ref, ANO_MODELO_MIN, nome_arq)
