@@ -183,4 +183,5 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
     return('Sucesso', 200)
 
 #if __name__ == '__main__':
-#    main("teste")
+
+#    main()
