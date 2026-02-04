@@ -167,14 +167,14 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
     except Exception as e:
         print(f"\n❌ Erro Fatal: {e}")
 
-def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ANO_MODELO_MIN=2018):
+def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_min=2018):
     nome_arq = f"./download/fipe_{mes_ref}_{ano_ref}.csv"
     print(f"🚀 Iniciando Scraper Fipe")
     print(f"📅 Referência: {mes_ref}/{ano_ref}")
     if os.path.exists(nome_arq):
         print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
-    extrair_dados_fipe(mes_ref, ano_ref, ANO_MODELO_MIN, nome_arq)
+    extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq)
     return('Sucesso', 200)
 
 #if __name__ == '__main__':
