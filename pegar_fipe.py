@@ -31,6 +31,27 @@ scraper = iniciar_scraper()
 
 # --- FUNÇÕES ---
 
+def carregar_modelos_ja_processados(caminho_arquivo):
+    """
+    Lê o CSV existente e retorna um SET com os nomes dos modelos já baixados.
+    Usar SET torna a busca instantânea (O(1)).
+    """
+    if not os.path.exists(caminho_arquivo):
+        return set()
+    
+    try:
+        # Lê apenas a coluna 'Modelo' para economizar memória e tempo
+        df = pd.read_csv(caminho_arquivo, sep=';', decimal=',', encoding='utf-8-sig', usecols=['Modelo'])
+        modelos_existentes = set(df['Modelo'].unique())
+        print(f"💾 Histórico encontrado: {len(modelos_existentes)} modelos já processados serão pulados.")
+        return modelos_existentes
+    except ValueError:
+        # Caso o arquivo exista mas esteja vazio ou sem a coluna Modelo
+        return set()
+    except Exception as e:
+        print(f"⚠️ Erro ao ler histórico: {e}. Iniciando completo.")
+        return set()
+
 def salvar_buffer_csv(lista_dados, nome_arq):
     """
     Recebe uma LISTA de dicionários e salva no CSV de forma eficiente.
@@ -87,6 +108,8 @@ def limpar_duplicados_csv(caminho_arquivo):
 
 def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
     try:
+        modelos_ja_processados = carregar_modelos_ja_processados(nome_arq)
+                                                                 
         cod_ref = obter_codigo_referencia(mes_ref, ano_ref)
         print(f"✅ Tabela encontrada: {cod_ref}")
         
@@ -108,6 +131,10 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
                 cod_modelo = modelo['Value']
                 nome_modelo = modelo['Label']
                 
+                if nome_modelo in modelos_ja_processados:
+                    print(f" ⏭️  {nome_modelo} já existe. Pulando.")
+                    continue
+
                 # lista temporária para armazenar dados deste modelo
                 dados_modelo_buffer = [] 
                 
