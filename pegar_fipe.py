@@ -92,20 +92,6 @@ def obter_codigo_referencia(mes, ano):
         if item['Mes'].strip().lower() == busca.lower(): return item['Codigo']
     raise ValueError(f"Referência {busca} não encontrada.")
 
-def limpar_duplicados_csv(caminho_arquivo):
-    try:
-        # 1. Carrega o arquivo CSV
-        df = pd.read_csv(caminho_arquivo, sep=';', decimal=',', encoding='utf-8-sig')
-        # 2. Remove as duplicatas
-        df_limpo = df.drop_duplicates(keep='last', ignore_index=True)
-        # 3. Salva o arquivo limpo
-        df_limpo.to_csv(caminho_arquivo, index=False, sep=';', decimal=',', encoding='utf-8-sig')
-        
-        print(f"Sucesso! Arquivo '{caminho_arquivo}' atualizado e duplicatas removidas.")
-        
-    except Exception as e:
-        print(f"Ocorreu um erro: {e}")
-
 def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
     try:
         modelos_ja_processados = carregar_modelos_ja_processados(nome_arq)
@@ -191,4 +177,3 @@ if __name__ == "__main__":
         print(f"📝 Arquivo existente: {NOME_ARQUIVO_SAIDA} (Modo Append)")
     
     extrair_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN, NOME_ARQUIVO_SAIDA)
-    limpar_duplicados_csv(NOME_ARQUIVO_SAIDA)
