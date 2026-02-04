@@ -1,178 +1,167 @@
-import requests
+import cloudscraper
 import pandas as pd
-import random
 import time
-from fake_useragent import UserAgent
+import random
+import os
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-
-# --- CONFIGURAÇÕES GLOBAIS ---
-BASE_URL = "https://veiculos.fipe.org.br/api/veiculos"
-
-# aqui definimos as pausas mínimas e máximas entre cada requisição de preço para não tomar block da api
-PAUSA_API_MIN = 1.0 # menos que 1 não rola
-PAUSA_API_MAX = 1.0
-
-# aqui definimos o ano do modelo mínimo que queremos. Assim o script roda mais rápido e traz apenas as infos mais relevantes
-ANO_MODELO_MIN = 2010
-
-# aqui definimos o mês e ano de referência dos preços que queremos
+# --- CONFIGURAÇÕES ---
+ANO_MODELO_MIN = 2018
 MES_REFERENCIA, ANO_REFERENCIA = 1, 2026
+NOME_ARQUIVO_SAIDA = f"./download/fipe_{MES_REFERENCIA}_{ANO_REFERENCIA}.csv"
+
+# --- INICIALIZAÇÃO DO SCRAPER ---
+def iniciar_scraper():
+    scraper = cloudscraper.create_scraper(
+        browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
+    )
+    scraper.headers.update({
+        "Referer": "https://veiculos.fipe.org.br/",
+        "Origin": "https://veiculos.fipe.org.br",
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept": "application/json, text/javascript, */*; q=0.01"
+    })
+    retry = Retry(total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["POST"])
+    scraper.mount("https://", HTTPAdapter(max_retries=retry))
+    return scraper
+
+scraper = iniciar_scraper()
 
 # --- FUNÇÕES ---
 
-def get_headers():
-    return {
-        "Referer": random.choice(["https://veiculos.fipe.org.br/", "http://veiculos.fipe.org.br/"]),
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "User-Agent": UserAgent().random
-    }
-
-def consultar_tabela_referencia(mes=None, ano=None):
+def salvar_buffer_csv(lista_dados, nome_arq):
     """
-    Busca o código de referência.
-    Se mes e ano não forem passados, retorna o mais recente.
+    Recebe uma LISTA de dicionários e salva no CSV de forma eficiente.
     """
-    url = f"{BASE_URL}/ConsultarTabelaDeReferencia"
-    response = requests.post(url, headers=get_headers())
+    if not lista_dados: return
 
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        raise Exception
-    lista_referencias = response.json()
-
-    # Retorna o atual se não houver parâmetros
-    if mes is None or ano is None:
-        return lista_referencias[0]
-
-    meses_nomes = {
-        1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
-        5: "maio", 6: "junho", 7: "julho", 8: "agosto",
-        9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
-    }
-
-    if mes not in meses_nomes:
-        raise ValueError("Mês inválido! Use um número entre 1 e 12.")
-
-    busca_str = f"{meses_nomes[mes]}/{ano}"
-
-    for ref in lista_referencias:
-        if ref['Mes'].strip() == busca_str:
-            return ref
-
-    raise ValueError(f"Não foi encontrada tabela de referência para {busca_str}")
-
-
-def consultar_marcas(codigo_tabela_ref, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarMarcas"
+    df_temp = pd.DataFrame(lista_dados)
     
-    # O servidor da Fipe é rigoroso: os valores devem ser strings
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo
-    }
-    response = requests.post(url, headers=get_headers(), data=payload)
-    
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
+    if not os.path.exists(nome_arq):
+        df_temp.to_csv(nome_arq, index=False, sep=';', decimal=',', encoding='utf-8-sig')
+    else:
+        df_temp.to_csv(nome_arq, mode='a', header=False, index=False, sep=';', decimal=',', encoding='utf-8-sig')
+
+def api_post(endpoint, payload, delay_min=0.5, delay_max=1.5):
+    url = f"https://veiculos.fipe.org.br/api/veiculos/{endpoint}"
+    try:
+        time.sleep(random.uniform(delay_min, delay_max))
+        response = scraper.post(url, data=payload)
         
-    return response.json()
+        if response.status_code != 200:
+            print(f"⚠️ Erro HTTP {response.status_code} em {endpoint}")
+            return None
+        return response.json()
+    except Exception as e:
+        print(f"❌ Erro na requisição: {e}")
+        return None
 
+def obter_codigo_referencia(mes, ano):
+    print("🔍 Buscando código da tabela de referência...")
+    lista = api_post("ConsultarTabelaDeReferencia", {})
+    if not lista: raise Exception("Falha ao obter tabela.")
 
+    # Mapeamento de meses para o formato da FIPE
+    meses_extenso = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+    busca = f"{meses_extenso[mes]}/{ano}"
+    
+    for item in lista:
+        if item['Mes'].strip().lower() == busca.lower(): return item['Codigo']
+    raise ValueError(f"Referência {busca} não encontrada.")
 
-def consultar_modelos(codigo_tabela_ref, codigo_marca, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarModelos"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca
-    }
-    response = requests.post(url, headers=get_headers(), data=payload)
+def limpar_duplicados_csv(caminho_arquivo):
+    try:
+        # 1. Carrega o arquivo CSV
+        df = pd.read_csv(caminho_arquivo, sep=';', decimal=',', encoding='utf-8-sig')
+        # 2. Remove as duplicatas
+        df_limpo = df.drop_duplicates(keep='last', ignore_index=True)
+        # 3. Salva o arquivo limpo
+        df_limpo.to_csv(caminho_arquivo, index=False, sep=';', decimal=',', encoding='utf-8-sig')
+        
+        print(f"Sucesso! Arquivo '{caminho_arquivo}' atualizado e duplicatas removidas.")
+        
+    except Exception as e:
+        print(f"Ocorreu um erro: {e}")
 
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
-    return response.json()['Modelos']
+def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
+    try:
+        cod_ref = obter_codigo_referencia(mes_ref, ano_ref)
+        print(f"✅ Tabela encontrada: {cod_ref}")
+        
+        # 1. Marcas (Tipo 1 = Carros)
+        marcas = api_post("ConsultarMarcas", {"codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1})
+        if not marcas: return
 
+        for marca in marcas:
+            cod_marca = marca['Value']
+            print(f"\n🚙 Marca: {marca['Label']}")
+            
+            # 2. Modelos
+            resp_modelos = api_post("ConsultarModelos", {
+                "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1, "codigoMarca": cod_marca
+            })
+            if not resp_modelos: continue
+            
+            for modelo in resp_modelos.get('Modelos', []):
+                cod_modelo = modelo['Value']
+                nome_modelo = modelo['Label']
+                
+                # lista temporária para armazenar dados deste modelo
+                dados_modelo_buffer = [] 
+                
+                # 3. Anos/Versões
+                anos = api_post("ConsultarAnoModelo", {
+                    "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1, 
+                    "codigoMarca": cod_marca, "codigoModelo": cod_modelo
+                })
+                if not anos: continue
+                
+                print(f"   ↳ {nome_modelo}: coletando {len(anos)} versões...", end="", flush=True)
+                
+                for ano in anos:
+                    try:
+                        # Validação simples de ano
+                        ano_num = int(ano['Value'].split('-')[0])
+                        # 32000 é o código FIPE para "Zero KM"
+                        if ano_num < ano_modelo_min and ano_num != 32000: continue
+                        
+                        ano_mod, comb_cod = ano['Value'].split('-')
+                        
+                        # 4. Detalhes do Preço
+                        detalhe = api_post("ConsultarValorComTodosParametros", {
+                            "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1,
+                            "codigoMarca": cod_marca, "codigoModelo": cod_modelo,
+                            "anoModelo": ano_mod, "codigoTipoCombustivel": comb_cod,
+                            "tipoConsulta": "tradicional"
+                        })
+                        
+                        if detalhe and 'MesReferencia' in detalhe:
+                            detalhe['DataExtracao'] = time.strftime("%Y-%m-%d %H:%M:%S")
+                            # Adiciona ao buffer da memória
+                            dados_modelo_buffer.append(detalhe)
+                    except:
+                        continue
+                
+                # --- FINALIZOU O MODELO ---
+                # Salva no CSV apenas após processar todos os anos deste modelo específico
+                if dados_modelo_buffer:
+                    salvar_buffer_csv(dados_modelo_buffer, nome_arq)
+                    print(f" ✅ Salvo.")
+                else:
+                    print(" ⏩ Pulado (sem anos válidos).")
 
-def consultar_ano_modelo(codigo_tabela_ref, codigo_marca, codigo_modelo, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarAnoModelo"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca,
-        "codigoModelo": codigo_modelo
-    }
-    response = requests.post(url, headers=get_headers(), data=payload)
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
-    return response.json()
+    except KeyboardInterrupt:
+        print("\n🛑 Interrompido pelo usuário. O que foi salvo até agora está no CSV.")
+    except Exception as e:
+        print(f"\n❌ Erro Fatal: {e}")
 
-
-def consultar_valor(codigo_tabela_ref, codigo_marca, codigo_modelo, ano_modelo, codigo_tipo_combustivel, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarValorComTodosParametros"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca,
-        "codigoModelo": codigo_modelo,
-        "anoModelo": ano_modelo,
-        "codigoTipoCombustivel": codigo_tipo_combustivel,
-        "tipoConsulta": "tradicional"
-    }
-    response = requests.post(url, headers=get_headers(), data=payload)
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        raise Exception
-        #return []
-    return response.json()
-
-def pausar_api(pausa_api_min=1.0, pausa_api_max=1.0):
-    time.sleep(random.uniform(pausa_api_min, pausa_api_max))
-
-def pegar_dados_fipe(mes_referencia, ano_referencia, ano_modelo_min=2010):
-    # cria dataframe onde iremos colocar os dados
-    df = pd.DataFrame(columns=['Valor', 'Marca', 'Modelo', 'AnoModelo', 'Combustivel', 'CodigoFipe',
-        'MesReferencia', 'Autenticacao', 'TipoVeiculo', 'SiglaCombustivel',
-        'DataConsulta'])
-
-
-    # pega código da tabela 
-    print("1. Obtendo Tabela de Referência...")
-    referencia = consultar_tabela_referencia(mes_referencia, ano_referencia)
-    cod_ref = referencia['Codigo']
-    cod_ref
-
-    print("\n2. Buscando Marcas...")
-    marcas = consultar_marcas(cod_ref, 1)
-
-    for marca in marcas:
-        cod_marca = marca['Value']
-        print(f"\n3. Buscando Modelos {marca['Label']}...")
-        modelos = consultar_modelos(cod_ref, cod_marca)
-        pausar_api()
-        for modelo in modelos:
-            cod_modelo = modelo['Value']
-            anos = consultar_ano_modelo(cod_ref, cod_marca, cod_modelo)
-            pausar_api()
-            anos = [ano for ano in anos if int(ano['Value'].split('-')[0]) > ano_modelo_min] # filtra fora modelos com ano menor que o mínimo
-            for ano in anos:
-                ano_modelo, tipo_combustivel = ano['Value'].split('-')
-                dados_finais = consultar_valor(
-                    codigo_tabela_ref=cod_ref,
-                    codigo_marca=cod_marca,
-                    codigo_modelo=cod_modelo,
-                    ano_modelo=ano_modelo,
-                    codigo_tipo_combustivel=tipo_combustivel
-                )
-                df = pd.concat([df, pd.DataFrame([dados_finais])], ignore_index=True)
-                pausar_api()
-    return df
-
-df = pegar_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN)
-df.to_csv(f'{MES_REFERENCIA}/{ANO_REFERENCIA}.csv', index=False, sep=';', decimal=',')
+if __name__ == "__main__":
+    print(f"🚀 Iniciando Scraper Fipe")
+    print(f"📅 Referência: {MES_REFERENCIA}/{ANO_REFERENCIA}")
+    if os.path.exists(NOME_ARQUIVO_SAIDA):
+        print(f"📝 Arquivo existente: {NOME_ARQUIVO_SAIDA} (Modo Append)")
+    
+    extrair_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN, NOME_ARQUIVO_SAIDA)
+    limpar_duplicados_csv(NOME_ARQUIVO_SAIDA)

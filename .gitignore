@@ -31,3 +31,10 @@ wheels/
 
 # VS Code
 .vscode/
+
+# ambiente develop
+testes.ipynb
+
+#pasta de dados
+download/*
+!download/.gitkeep
