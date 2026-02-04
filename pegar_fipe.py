@@ -2,45 +2,42 @@ import requests
 import pandas as pd
 import random
 import time
+import os
 from fake_useragent import UserAgent
-
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # --- CONFIGURAÇÕES GLOBAIS ---
 BASE_URL = "https://veiculos.fipe.org.br/api/veiculos"
-
-HEADERS = {
-    "Referer": "https://veiculos.fipe.org.br/",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-}
-
-# aqui definimos as pausas mínimas e máximas entre cada requisição de preço para não tomar block da api
-PAUSA_API_MIN = 1.0 # menos que 1 não rola
-PAUSA_API_MAX = 1.0
-
-# aqui definimos o ano do modelo mínimo que queremos. Assim o script roda mais rápido e traz apenas as infos mais relevantes
 ANO_MODELO_MIN = 2010
-
-# aqui definimos o mês e ano de referência dos preços que queremos
 MES_REFERENCIA, ANO_REFERENCIA = 1, 2026
+
+# Configuração de Sessão e Retries (Para evitar quedas de conexão)
+session = requests.Session()
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504]
+)
+session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
+
+def get_headers():
+    return {
+        "Referer": random.choice(["https://veiculos.fipe.org.br/", "http://veiculos.fipe.org.br/"]),
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "User-Agent": UserAgent().random
+    }
 
 # --- FUNÇÕES ---
 
 def consultar_tabela_referencia(mes=None, ano=None):
-    """
-    Busca o código de referência.
-    Se mes e ano não forem passados, retorna o mais recente.
-    """
     url = f"{BASE_URL}/ConsultarTabelaDeReferencia"
-    headers = HEADERS.copy()
-    headers["User-Agent"] = UserAgent().random
-    response = requests.post(url, headers=headers)
-
+    response = session.post(url, headers=get_headers())
+    
     if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        raise Exception
+        raise Exception(f"Erro ao buscar referências: {response.status_code}")
+    
     lista_referencias = response.json()
-
-    # Retorna o atual se não houver parâmetros
     if mes is None or ano is None:
         return lista_referencias[0]
 
@@ -49,138 +46,93 @@ def consultar_tabela_referencia(mes=None, ano=None):
         5: "maio", 6: "junho", 7: "julho", 8: "agosto",
         9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
     }
-
-    if mes not in meses_nomes:
-        raise ValueError("Mês inválido! Use um número entre 1 e 12.")
-
+    
     busca_str = f"{meses_nomes[mes]}/{ano}"
-
     for ref in lista_referencias:
-        if ref['Mes'].strip() == busca_str:
+        if ref['Mes'].strip().lower() == busca_str.lower():
             return ref
+    raise ValueError(f"Referência {busca_str} não encontrada.")
 
-    raise ValueError(f"Não foi encontrada tabela de referência para {busca_str}")
+def api_post(endpoint, payload):
+    """Função genérica para POST com tratamento de erro"""
+    url = f"{BASE_URL}/{endpoint}"
+    try:
+        response = session.post(url, headers=get_headers(), data=payload, timeout=15)
+        # Delay estratégico entre requisições para evitar block
+        time.sleep(random.uniform(1.0, 1.5))
+        # Verifica se o status é 200 (OK)
+        if response.status_code != 200:
+            print(f"⚠️ Erro HTTP {response.status_code} no endpoint {endpoint}")
+            return None
+        return response.json()
+    except Exception as e:
+        print(f"Erro na requisição {endpoint}: {e}")
+        return None
 
-
-def consultar_marcas(codigo_tabela_ref, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarMarcas"
+def pegar_dados_fipe(mes_ref, ano_ref, ano_min=2010):
+    print("🚀 Iniciando extração de dados...")
     
-    # O servidor da Fipe é rigoroso: os valores devem ser strings
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo
-    }
-    headers = HEADERS.copy()
-    headers["User-Agent"] = UserAgent().random
-    response = requests.post(url, headers=headers, data=payload)
+    ref = consultar_tabela_referencia(mes_ref, ano_ref)
+    cod_ref = ref['Codigo']
     
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
-        
-    return response.json()
-
-
-
-def consultar_modelos(codigo_tabela_ref, codigo_marca, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarModelos"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca
-    }
-    headers = HEADERS.copy()
-    headers["User-Agent"] = UserAgent().random
-    response = requests.post(url, headers=headers, data=payload)
-
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
-    return response.json()['Modelos']
-
-
-def consultar_ano_modelo(codigo_tabela_ref, codigo_marca, codigo_modelo, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarAnoModelo"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca,
-        "codigoModelo": codigo_modelo
-    }
-    headers = HEADERS.copy()
-    headers["User-Agent"] = UserAgent().random
-    response = requests.post(url, headers=headers, data=payload)
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        return []
-    return response.json()
-
-
-def consultar_valor(codigo_tabela_ref, codigo_marca, codigo_modelo, ano_modelo, codigo_tipo_combustivel, tipo_veiculo=1):
-    url = f"{BASE_URL}/ConsultarValorComTodosParametros"
-    payload = {
-        "codigoTabelaReferencia": codigo_tabela_ref,
-        "codigoTipoVeiculo": tipo_veiculo,
-        "codigoMarca": codigo_marca,
-        "codigoModelo": codigo_modelo,
-        "anoModelo": ano_modelo,
-        "codigoTipoCombustivel": codigo_tipo_combustivel,
-        "tipoConsulta": "tradicional"
-    }
-    headers = HEADERS.copy()
-    headers["User-Agent"] = UserAgent().random
-    response = requests.post(url, headers=headers, data=payload)
-    if response.status_code != 200:
-        print(f"Erro no Servidor: {response.status_code}")
-        print(f"Resposta: {response.text}")
-        raise Exception
-        #return []
-    return response.json()
-
-def pausar_api(pausa_api_min=1.0, pausa_api_max=1.0):
-    time.sleep(random.uniform(pausa_api_min, pausa_api_max))
-
-def pegar_dados_fipe(mes_referencia, ano_referencia, ano_modelo_min=2010):
-    # cria dataframe onde iremos colocar os dados
-    df = pd.DataFrame(columns=['Valor', 'Marca', 'Modelo', 'AnoModelo', 'Combustivel', 'CodigoFipe',
-        'MesReferencia', 'Autenticacao', 'TipoVeiculo', 'SiglaCombustivel',
-        'DataConsulta'])
-
-
-    # pega código da tabela 
-    print("1. Obtendo Tabela de Referência...")
-    referencia = consultar_tabela_referencia(mes_referencia, ano_referencia)
-    cod_ref = referencia['Codigo']
-    cod_ref
-
-    print("\n2. Buscando Marcas...")
-    marcas = consultar_marcas(cod_ref, 1)
+    marcas = api_post("ConsultarMarcas", {"codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1})
+    
+    dados_acumulados = []
+    
+    if not marcas: return pd.DataFrame()
 
     for marca in marcas:
-        cod_marca = marca['Value']
-        print(f"\n3. Buscando Modelos {marca['Label']}...")
-        modelos = consultar_modelos(cod_ref, cod_marca)
-        pausar_api()
-        for modelo in modelos:
-            cod_modelo = modelo['Value']
-            anos = consultar_ano_modelo(cod_ref, cod_marca, cod_modelo)
-            pausar_api()
-            anos = [ano for ano in anos if int(ano['Value'].split('-')[0]) > ano_modelo_min] # filtra fora modelos com ano menor que o mínimo
+        print(f"📦 Processando Marca: {marca['Label']}")
+        modelos_resp = api_post("ConsultarModelos", {
+            "codigoTabelaReferencia": cod_ref,
+            "codigoTipoVeiculo": 1,
+            "codigoMarca": marca['Value']
+        })
+        
+        if not modelos_resp: continue
+        
+        for modelo in modelos_resp['Modelos']:
+            
+            anos = api_post("ConsultarAnoModelo", {
+                "codigoTabelaReferencia": cod_ref,
+                "codigoTipoVeiculo": 1,
+                "codigoMarca": marca['Value'],
+                "codigoModelo": modelo['Value']
+            })
+            
+            if not anos: continue
+            
             for ano in anos:
-                ano_modelo, tipo_combustivel = ano['Value'].split('-')
-                dados_finais = consultar_valor(
-                    codigo_tabela_ref=cod_ref,
-                    codigo_marca=cod_marca,
-                    codigo_modelo=cod_modelo,
-                    ano_modelo=ano_modelo,
-                    codigo_tipo_combustivel=tipo_combustivel
-                )
-                df = pd.concat([df, pd.DataFrame([dados_finais])], ignore_index=True)
-                pausar_api()
-    return df
+                ano_val = int(ano['Value'].split('-')[0])
+                if ano_val >= ano_min:
+                    ano_cod, combustivel_cod = ano['Value'].split('-')
+                    
+                    detalhes = api_post("ConsultarValorComTodosParametros", {
+                        "codigoTabelaReferencia": cod_ref,
+                        "codigoTipoVeiculo": 1,
+                        "codigoMarca": marca['Value'],
+                        "codigoModelo": modelo['Value'],
+                        "anoModelo": ano_cod,
+                        "codigoTipoCombustivel": combustivel_cod,
+                        "tipoConsulta": "tradicional"
+                    })
+                    
+                    if detalhes:
+                        dados_acumulados.append(detalhes)
+                        # Print de progresso rápido
+                        print(f"  ✅ {detalhes['Modelo']} {detalhes['AnoModelo']}")
 
-df = pegar_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN)
-df.to_csv(f'{MES_REFERENCIA}/{ANO_REFERENCIA}.csv', index=False, sep=';', decimal=',')
+    return pd.DataFrame(dados_acumulados)
+
+# --- EXECUÇÃO ---
+try:
+    df_final = pegar_dados_fipe(MES_REFERENCIA, ANO_REFERENCIA, ANO_MODELO_MIN)
+
+    if not df_final.empty:
+        filename = f"fipe_{MES_REFERENCIA}_{ANO_REFERENCIA}.csv"
+        df_final.to_csv(filename, index=False, sep=';', decimal=',', encoding='utf-8-sig')
+        print(f"\n✨ Sucesso! Arquivo '{filename}' gerado com {len(df_final)} registros.")
+    else:
+        print("\n⚠️ Nenhum dado foi coletado.")
+except Exception as e:
+    print(f"\n❌ Erro crítico: {e}")
