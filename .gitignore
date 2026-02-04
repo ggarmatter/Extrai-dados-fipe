@@ -1,0 +1,33 @@
+# Ambiente Virtual
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache (arquivos compilados)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribuição / Pacotes
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+
+# Variáveis de ambiente (caso use arquivos .env para chaves de API)
+.env
+.flaskenv
+
+# VS Code
+.vscode/
