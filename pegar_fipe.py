@@ -24,8 +24,6 @@ def iniciar_scraper():
     scraper.mount("https://", HTTPAdapter(max_retries=retry))
     return scraper
 
-scraper = iniciar_scraper()
-
 # --- FUNÇÕES ---
 
 def carregar_modelos_ja_processados(caminho_arquivo):
@@ -67,7 +65,7 @@ def salvar_buffer_csv(lista_dados, nome_arq):
     else:
         df_temp.to_csv(nome_arq, mode='a', header=False, index=False, sep=';', decimal=',', encoding='utf-8-sig')
 
-def api_post(endpoint, payload, delay_min=0.5, delay_max=1.5):
+def api_post(scraper, endpoint, payload, delay_min=0.5, delay_max=1.5):
     url = f"https://veiculos.fipe.org.br/api/veiculos/{endpoint}"
     try:
         time.sleep(random.uniform(delay_min, delay_max))
@@ -81,9 +79,9 @@ def api_post(endpoint, payload, delay_min=0.5, delay_max=1.5):
         print(f"❌ Erro na requisição: {e}")
         return None
 
-def obter_codigo_referencia(mes, ano):
+def obter_codigo_referencia(mes, ano, scraper):
     print("🔍 Buscando código da tabela de referência...")
-    lista = api_post("ConsultarTabelaDeReferencia", {})
+    lista = api_post(scraper, "ConsultarTabelaDeReferencia", {})
     if not lista: raise Exception("Falha ao obter tabela.")
 
     # Mapeamento de meses para o formato da FIPE
@@ -94,15 +92,15 @@ def obter_codigo_referencia(mes, ano):
         if item['Mes'].strip().lower() == busca.lower(): return item['Codigo']
     raise ValueError(f"Referência {busca} não encontrada.")
 
-def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
+def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper):
     try:
         modelos_ja_processados = carregar_modelos_ja_processados(nome_arq)
                                                                  
-        cod_ref = obter_codigo_referencia(mes_ref, ano_ref)
+        cod_ref = obter_codigo_referencia(mes_ref, ano_ref, scraper)
         print(f"✅ Tabela encontrada: {cod_ref}")
         
         # 1. Marcas (Tipo 1 = Carros)
-        marcas = api_post("ConsultarMarcas", {"codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1})
+        marcas = api_post(scraper,"ConsultarMarcas", {"codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1})
         if not marcas: return
 
         for marca in marcas:
@@ -110,7 +108,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
             print(f"\n🚙 Marca: {marca['Label']}")
             
             # 2. Modelos
-            resp_modelos = api_post("ConsultarModelos", {
+            resp_modelos = api_post(scraper,"ConsultarModelos", {
                 "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1, "codigoMarca": cod_marca
             })
             if not resp_modelos: continue
@@ -127,7 +125,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
                 dados_modelo_buffer = [] 
                 
                 # 3. Anos/Versões
-                anos = api_post("ConsultarAnoModelo", {
+                anos = api_post(scraper,"ConsultarAnoModelo", {
                     "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1, 
                     "codigoMarca": cod_marca, "codigoModelo": cod_modelo
                 })
@@ -145,7 +143,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
                         ano_mod, comb_cod = ano['Value'].split('-')
                         
                         # 4. Detalhes do Preço
-                        detalhe = api_post("ConsultarValorComTodosParametros", {
+                        detalhe = api_post(scraper, "ConsultarValorComTodosParametros", {
                             "codigoTabelaReferencia": cod_ref, "codigoTipoVeiculo": 1,
                             "codigoMarca": cod_marca, "codigoModelo": cod_modelo,
                             "anoModelo": ano_mod, "codigoTipoCombustivel": comb_cod,
@@ -175,11 +173,12 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq):
 def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_min=2018):
     nome_arq = f"./download/fipe_{mes_ref}_{ano_ref}.csv"
     print(f"🚀 Iniciando Scraper Fipe")
+    scraper = iniciar_scraper()
     print(f"📅 Referência: {mes_ref}/{ano_ref}")
     if os.path.exists(nome_arq):
         print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
-    extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq)
+    extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper)
     return('Sucesso', 200)
 
 if __name__ == '__main__':
