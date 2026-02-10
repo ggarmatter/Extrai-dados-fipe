@@ -182,5 +182,5 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
     extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq)
     return('Sucesso', 200)
 
-#if __name__ == '__main__':
-#    main("teste")
+if __name__ == '__main__':
+    main()
