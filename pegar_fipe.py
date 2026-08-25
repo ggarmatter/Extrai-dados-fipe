@@ -26,6 +26,44 @@ def iniciar_scraper():
 
 # --- FUNÇÕES ---
 
+def carregar_ultimo_ano_modelos(caminho_arquivo):
+    """
+    Lê o CSV de registro de último ano e retorna um dicionário {(cod_marca, cod_modelo): ultimo_ano}.
+    """
+    if not os.path.exists(caminho_arquivo):
+        return {}
+    
+    try:
+        df = pd.read_csv(caminho_arquivo, sep=';', encoding='utf-8-sig')
+        df['cod_marca'] = df['cod_marca'].astype(str)
+        df['cod_modelo'] = df['cod_modelo'].astype(str)
+        df['ultimo_ano'] = df['ultimo_ano'].astype(int)
+        
+        registro = dict(zip(zip(df['cod_marca'], df['cod_modelo']), df['ultimo_ano']))
+        print(f"📂 Registro de anos carregado: {len(registro)} modelos cadastrados.")
+        return registro
+    except Exception as e:
+        print(f"⚠️ Erro ao ler registro de último ano: {e}. Iniciando com registro vazio.")
+        return {}
+
+def salvar_registro_ultimo_ano(cod_marca, cod_modelo, nome_modelo, ultimo_ano, caminho_arquivo):
+    """
+    Salva de forma incremental o registro de fabricação máxima de um modelo.
+    """
+    df_temp = pd.DataFrame([{
+        'cod_marca': cod_marca,
+        'cod_modelo': cod_modelo,
+        'nome_modelo': nome_modelo,
+        'ultimo_ano': ultimo_ano
+    }])
+    diretorio = os.path.dirname(caminho_arquivo)
+    if diretorio and not os.path.exists(diretorio):
+        os.makedirs(diretorio)
+    if not os.path.exists(caminho_arquivo):
+        df_temp.to_csv(caminho_arquivo, index=False, sep=';', encoding='utf-8-sig')
+    else:
+        df_temp.to_csv(caminho_arquivo, mode='a', header=False, index=False, sep=';', encoding='utf-8-sig')
+
 def carregar_modelos_ja_processados(caminho_arquivo):
     """
     Lê o CSV existente e retorna um SET com os nomes dos modelos já baixados.
@@ -92,9 +130,10 @@ def obter_codigo_referencia(mes, ano, scraper):
         if item['Mes'].strip().lower() == busca.lower(): return item['Codigo']
     raise ValueError(f"Referência {busca} não encontrada.")
 
-def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper):
+def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_registro, scraper):
     try:
         modelos_ja_processados = carregar_modelos_ja_processados(nome_arq)
+        registro_ultimo_ano = carregar_ultimo_ano_modelos(caminho_registro)
                                                                  
         cod_ref = obter_codigo_referencia(mes_ref, ano_ref, scraper)
         print(f"✅ Tabela encontrada: {cod_ref}")
@@ -121,6 +160,14 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper):
                     print(f" ⏭️  {nome_modelo} já existe. Pulando.")
                     continue
 
+                # Filtra com base no histórico do último ano de fabricação registrado
+                chave_modelo = (str(cod_marca), str(cod_modelo))
+                if chave_modelo in registro_ultimo_ano:
+                    ultimo_ano = registro_ultimo_ano[chave_modelo]
+                    if ultimo_ano < ano_modelo_min and ultimo_ano != 32000:
+                        print(f" ⏭️  {nome_modelo} pulado por ano máximo ({ultimo_ano} < {ano_modelo_min}).")
+                        continue
+
                 # lista temporária para armazenar dados deste modelo
                 dados_modelo_buffer = [] 
                 
@@ -131,6 +178,24 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper):
                 })
                 if not anos: continue
                 
+                # Registra o último ano se ainda não existir no arquivo de cache
+                if chave_modelo not in registro_ultimo_ano:
+                    anos_nums = []
+                    for ano in anos:
+                        try:
+                            ano_num = int(ano['Value'].split('-')[0])
+                            anos_nums.append(ano_num)
+                        except:
+                            continue
+                    if anos_nums:
+                        max_ano = max(anos_nums)
+                        registro_ultimo_ano[chave_modelo] = max_ano
+                        salvar_registro_ultimo_ano(cod_marca, cod_modelo, nome_modelo, max_ano, caminho_registro)
+                        
+                        if max_ano < ano_modelo_min and max_ano != 32000:
+                            print(f" ⏩ {nome_modelo} Pulado (último ano registrado: {max_ano}).")
+                            continue
+
                 print(f"   ↳ {nome_modelo}: coletando {len(anos)} versões...", end="", flush=True)
                 
                 for ano in anos:
@@ -172,13 +237,14 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper):
 
 def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_min=2018):
     nome_arq = f"./download/fipe_{mes_ref}_{ano_ref}.csv"
+    caminho_registro = "./download/ultimo_ano_modelos.csv"
     print(f"🚀 Iniciando Scraper Fipe")
     scraper = iniciar_scraper()
     print(f"📅 Referência: {mes_ref}/{ano_ref}")
     if os.path.exists(nome_arq):
         print(f"📝 Arquivo existente: {nome_arq} (Modo Append)")
     
-    extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, scraper)
+    extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_registro, scraper)
     return('Sucesso', 200)
 
 if __name__ == '__main__':
