@@ -192,8 +192,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_regis
                         
                         # Se o último ano for menor que o ano anterior (e não for zero km), salvamos no cache.
                         # Modelos do ano corrente, ano anterior, futuros ou Zero KM (32000) não são salvos para continuarem atualizados.
-                        ano_atual = datetime.now().year
-                        if max_ano < (ano_atual - 1) and max_ano != 32000:
+                        if max_ano < (ano_ref - 1) and max_ano != 32000:
                             registro_ultimo_ano[chave_modelo] = max_ano
                             salvar_registro_ultimo_ano(cod_marca, cod_modelo, nome_modelo, max_ano, caminho_registro)
                             if max_ano < ano_modelo_min:
