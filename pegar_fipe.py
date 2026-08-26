@@ -7,6 +7,20 @@ from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# --- CONTROLE DE RATE LIMIT (1 requisição/segundo) ---
+class RateLimiter:
+    def __init__(self, interval=1.0):
+        self.interval = interval
+        self.last_call = 0.0
+
+    def wait(self):
+        elapsed = time.time() - self.last_call
+        if elapsed < self.interval:
+            time.sleep(self.interval - elapsed)
+        self.last_call = time.time()
+
+# Instância global do rate limiter
+rate_limiter = RateLimiter()
 
 # --- INICIALIZAÇÃO DO SCRAPER ---
 def iniciar_scraper():
@@ -106,7 +120,8 @@ def salvar_buffer_csv(lista_dados, nome_arq):
 def api_post(scraper, endpoint, payload, delay_min=0.5, delay_max=1.5):
     url = f"https://veiculos.fipe.org.br/api/veiculos/{endpoint}"
     try:
-        time.sleep(random.uniform(delay_min, delay_max))
+        rate_limiter.wait()
+        #time.sleep(random.uniform(delay_min, delay_max))
         response = scraper.post(url, data=payload)
         
         if response.status_code != 200:
@@ -257,6 +272,6 @@ if __name__ == '__main__':
     main()
 
 #if __name__ == '__main__':
-#    for ano in range(2023, 2027):
-#        for mes in range(1, 13):
+#    for ano in range(2026, 2022, -1):
+#        for mes in range(12, 0, -1):
 #            main(mes_ref=mes, ano_ref=ano, ano_modelo_min=2018)
