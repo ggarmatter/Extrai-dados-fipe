@@ -257,7 +257,7 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_regis
 
 def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_min=2018):
     nome_arq = f"./download/fipe_{mes_ref}_{ano_ref}.csv"
-    caminho_registro = "./download/ultimo_ano_modelos.csv"
+    caminho_registro = "./cache/ultimo_ano_modelos.csv"
     print(f"🚀 Iniciando Scraper Fipe")
     scraper = iniciar_scraper()
     print(f"📅 Referência: {mes_ref}/{ano_ref}")
