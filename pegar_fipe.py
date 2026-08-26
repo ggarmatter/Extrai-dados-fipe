@@ -189,11 +189,18 @@ def extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_regis
                             continue
                     if anos_nums:
                         max_ano = max(anos_nums)
-                        registro_ultimo_ano[chave_modelo] = max_ano
-                        salvar_registro_ultimo_ano(cod_marca, cod_modelo, nome_modelo, max_ano, caminho_registro)
                         
-                        if max_ano < ano_modelo_min and max_ano != 32000:
-                            print(f" ⏩ {nome_modelo} Pulado (último ano registrado: {max_ano}).")
+                        # Se o último ano for menor que o ano anterior (e não for zero km), salvamos no cache.
+                        # Modelos do ano corrente, ano anterior, futuros ou Zero KM (32000) não são salvos para continuarem atualizados.
+                        ano_atual = datetime.now().year
+                        if max_ano < (ano_atual - 1) and max_ano != 32000:
+                            registro_ultimo_ano[chave_modelo] = max_ano
+                            salvar_registro_ultimo_ano(cod_marca, cod_modelo, nome_modelo, max_ano, caminho_registro)
+                            if max_ano < ano_modelo_min:
+                                print(f" ⏩ {nome_modelo} Salvo último ano ({max_ano}) e pulado por ser menor que {ano_modelo_min}.")
+                                continue
+                        elif max_ano < ano_modelo_min and max_ano != 32000:
+                            print(f" ⏩ {nome_modelo} Pulado por ano máximo ({max_ano} < {ano_modelo_min}) (não cacheado por ser ano recente).")
                             continue
 
                 print(f"   ↳ {nome_modelo}: coletando {len(anos)} versões...", end="", flush=True)
@@ -249,3 +256,8 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
 
 if __name__ == '__main__':
     main()
+
+#if __name__ == '__main__':
+#    for ano in range(2023, 2027):
+#        for mes in range(1, 13):
+#            main(mes_ref=mes, ano_ref=ano, ano_modelo_min=2018)
