@@ -269,9 +269,9 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Script para extração de dados da Tabela FIPE.")
-    parser.add_argument('--mes_ref', type=int, default=datetime.now().month, help="Mês de referência (1-12)")
-    parser.add_argument('--ano_ref', type=int, default=datetime.now().year, help="Ano de referência")
-    parser.add_argument('--ano_modelo_min', type=int, default=2018, help="Ano modelo mínimo dos veículos a serem extraídos")
+    parser.add_argument('mes_ref', type=int, nargs='?', default=datetime.now().month, help="Mês de referência (1-12)")
+    parser.add_argument('ano_ref', type=int, nargs='?', default=datetime.now().year, help="Ano de referência")
+    parser.add_argument('ano_modelo_min', type=int, nargs='?', default=2018, help="Ano modelo mínimo dos veículos a serem extraídos")
     
     args = parser.parse_args()
     
