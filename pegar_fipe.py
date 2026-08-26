@@ -280,4 +280,4 @@ if __name__ == '__main__':
 #if __name__ == '__main__':
 #    for ano in range(2026, 2022, -1):
 #        for mes in range(12, 0, -1):
-#            main(mes_ref=mes, ano_ref=ano, ano_modelo_min=2018)
+#            main(mes_ref=mes, ano_ref=ano)
