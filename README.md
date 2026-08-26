@@ -59,7 +59,7 @@ Por padrão, se você executar o script sem nenhum argumento, ele utilizará as 
 Caso queira personalizar a extração, você pode passar **argumentos posicionais** na ordem correta, sem a necessidade de prefixar com `--argumento`:
 
 ```bash
-python pegar_fipe.py <mês_referência> <ano_referência> <ano_modelo_mínimo>
+python pegar_fipe.py <numero_do_mês_referência> <ano_referência> <ano_modelo_mínimo>
 ```
 
 ## Estrutura do CSV
