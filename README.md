@@ -54,12 +54,10 @@ O script criará uma pasta chamada `download` no diretório raiz e salvará o ar
 
 ### Configuração
 
-Para alterar o mês de referência, ano de referência ou o ano mínimo dos veículos, edite os parâmetros da função `main` no final do arquivo `pegar_fipe.py`:
+Você pode alterar o mês de referência, o ano de referência e o ano mínimo dos veículos passando-os como argumentos de linha de comando:
 
-```python
-if __name__ == '__main__':
-    # Exemplo: Referência mês 1/2024, filtro ano 2015
-    main(mes_ref=1, ano_ref=2024, ano_modelo_min=2015)
+```bash
+python pegar_fipe.py --mes_ref 1 --ano_ref 2024 --ano_modelo_min 2015
 ```
 
 ## Estrutura do CSV

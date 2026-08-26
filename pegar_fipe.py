@@ -1,7 +1,7 @@
 import cloudscraper
 import pandas as pd
 import time
-import random
+import argparse
 import os
 from datetime import datetime
 from requests.adapters import HTTPAdapter
@@ -121,7 +121,6 @@ def api_post(scraper, endpoint, payload, delay_min=0.5, delay_max=1.5):
     url = f"https://veiculos.fipe.org.br/api/veiculos/{endpoint}"
     try:
         rate_limiter.wait()
-        #time.sleep(random.uniform(delay_min, delay_max))
         response = scraper.post(url, data=payload)
         
         if response.status_code != 200:
@@ -269,7 +268,14 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
     return('Sucesso', 200)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Script para extração de dados da Tabela FIPE.")
+    parser.add_argument('--mes_ref', type=int, default=datetime.now().month, help="Mês de referência (1-12)")
+    parser.add_argument('--ano_ref', type=int, default=datetime.now().year, help="Ano de referência")
+    parser.add_argument('--ano_modelo_min', type=int, default=2018, help="Ano modelo mínimo dos veículos a serem extraídos")
+    
+    args = parser.parse_args()
+    
+    main(mes_ref=args.mes_ref, ano_ref=args.ano_ref, ano_modelo_min=args.ano_modelo_min)
 
 #if __name__ == '__main__':
 #    for ano in range(2026, 2022, -1):
