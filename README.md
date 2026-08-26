@@ -23,7 +23,7 @@ O script utiliza a biblioteca `cloudscraper` para realizar as requisições HTTP
 
 1. **Clone o repositório**
    ```bash
-   git clone [https://github.com/ggarmatter/Extrai-dados-fipe.git](https://github.com/ggarmatter/Extrai-dados-fipe.git)
+   git clone https://github.com/ggarmatter/Extrai-dados-fipe.git
    cd Extrai-dados-fipe
    ```
 
@@ -52,12 +52,14 @@ python pegar_fipe.py
 O script criará uma pasta chamada `download` no diretório raiz e salvará o arquivo no padrão:
 `./download/fipe_{MES}_{ANO}.csv`
 
-### Configuração
+### Configuração e Parâmetros
 
-Você pode alterar o mês de referência, o ano de referência e o ano mínimo dos veículos passando-os como argumentos de linha de comando:
+Por padrão, se você executar o script sem nenhum argumento, ele utilizará as configurações padrões do período atual (mês e ano vigentes) e extrairá carros a partir do ano de fabricação **2018**.
+
+Caso queira personalizar a extração, você pode passar **argumentos posicionais** na ordem correta, sem a necessidade de prefixar com `--argumento`:
 
 ```bash
-python pegar_fipe.py --mes_ref 1 --ano_ref 2024 --ano_modelo_min 2015
+python pegar_fipe.py <mês_referência> <ano_referência> <ano_modelo_mínimo>
 ```
 
 ## Estrutura do CSV
