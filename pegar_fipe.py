@@ -267,18 +267,18 @@ def main(mes_ref=datetime.now().month, ano_ref=datetime.now().year, ano_modelo_m
     extrair_dados_fipe(mes_ref, ano_ref, ano_modelo_min, nome_arq, caminho_registro, scraper)
     return('Sucesso', 200)
 
-#if __name__ == '__main__':
-#    parser = argparse.ArgumentParser(description="Script para extração de dados da Tabela FIPE.")
-#    parser.add_argument('mes_ref', type=int, nargs='?', default=datetime.now().month, help="Mês de referência (1-12)")
-#    parser.add_argument('ano_ref', type=int, nargs='?', default=datetime.now().year, help="Ano de referência")
-#    parser.add_argument('ano_modelo_min', type=int, nargs='?', default=2018, help="Ano modelo mínimo dos veículos a serem extraídos")
-#    
-#    args = parser.parse_args()
-#    
-#    main(mes_ref=args.mes_ref, ano_ref=args.ano_ref, ano_modelo_min=args.ano_modelo_min)
-
 if __name__ == '__main__':
-    for ano in range(2022, 2014, -1):
-        ano_modelo_min = ano - 6
-        for mes in range(12, 0, -1):
-            main(mes_ref=mes, ano_ref=ano, ano_modelo_min=ano_modelo_min)
+    parser = argparse.ArgumentParser(description="Script para extração de dados da Tabela FIPE.")
+    parser.add_argument('mes_ref', type=int, nargs='?', default=datetime.now().month, help="Mês de referência (1-12)")
+    parser.add_argument('ano_ref', type=int, nargs='?', default=datetime.now().year, help="Ano de referência")
+    parser.add_argument('ano_modelo_min', type=int, nargs='?', default=2018, help="Ano modelo mínimo dos veículos a serem extraídos")
+    
+    args = parser.parse_args()
+    
+    main(mes_ref=args.mes_ref, ano_ref=args.ano_ref, ano_modelo_min=args.ano_modelo_min)
+
+#if __name__ == '__main__':
+#    for ano in range(2022, 2014, -1):
+#        ano_modelo_min = ano - 6
+#        for mes in range(12, 0, -1):
+#            main(mes_ref=mes, ano_ref=ano, ano_modelo_min=ano_modelo_min)
